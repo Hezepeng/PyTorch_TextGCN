@@ -3,6 +3,7 @@ import random
 from collections import defaultdict
 
 import numpy as np
+import pynvml
 import torch as th
 import scipy.sparse as sp
 
@@ -47,12 +48,16 @@ def accuracy(pred, targ):
     return acc
 
 
+def b2mb(b):
+    return b / 1024
+
+
 class CudaUse(object):
     def __init__(self):
         self.cuda_available = th.cuda.is_available()
         if self.cuda_available:
-            from fastai.utils.pynvml_gate import load_pynvml_env
-            self.pynvml = load_pynvml_env()
+            pynvml.nvmlInit()
+            self.pynvml = pynvml
 
     def get_cuda_id(self):
         if self.cuda_available:
@@ -96,11 +101,11 @@ def print_graph_detail(graph):
     :return:
     """
     import networkx as nx
-    dst = {"nodes"    : nx.number_of_nodes(graph),
-           "edges"    : nx.number_of_edges(graph),
+    dst = {"nodes": nx.number_of_nodes(graph),
+           "edges": nx.number_of_edges(graph),
            "selfloops": nx.number_of_selfloops(graph),
-           "isolates" : nx.number_of_isolates(graph),
-           "覆盖度"      : 1 - nx.number_of_isolates(graph) / nx.number_of_nodes(graph), }
+           "isolates": nx.number_of_isolates(graph),
+           "覆盖度": 1 - nx.number_of_isolates(graph) / nx.number_of_nodes(graph), }
     print_table(dst)
 
 
@@ -135,7 +140,7 @@ def sparse_mx_to_torch_sparse_tensor(sparse_mx):
     """Convert a scipy sparse matrix to a torch sparse tensor."""
     sparse_mx = sparse_mx.tocoo().astype(np.float32)
     indices = th.from_numpy(
-            np.vstack((sparse_mx.row, sparse_mx.col)).astype(np.int64))
+        np.vstack((sparse_mx.row, sparse_mx.col)).astype(np.int64))
     values = th.from_numpy(sparse_mx.data)
     shape = th.Size(sparse_mx.shape)
     return th.sparse.FloatTensor(indices, values, shape)
@@ -196,7 +201,7 @@ class EarlyStopping:
         '''Saves model when validation loss decrease.'''
         if self.verbose:
             print(
-                    f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+                f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
         th.save(model.state_dict(), self.model_path)
         self.val_loss_min = val_loss
 
